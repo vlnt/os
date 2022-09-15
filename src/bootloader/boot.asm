@@ -12,10 +12,10 @@ bits 16
 jmp short start
 nop
 
-bdb_oem:                  db 'MSVIN4.1'        ; 8 bytes
+bdb_oem:                  db 'MSWIN4.1'        ; 8 bytes
 bdb_bytes_per_sector:     dw 512
 bdb_sectors_per_cluster:  db 1
-bdb_reserved_sectors:     db 1
+bdb_reserved_sectors:     dw 1
 bdb_fat_count:            db 2
 bdb_dir_entries_count:    dw 0E0h
 bdb_total_sectors:        dw 2880              ; 2880 x 512 = 1.44MB
@@ -31,7 +31,7 @@ ebr_drive_number:         db 0                 ; 0x00 - floppy 0x80 - hdd
                           db 0                 ; reserved
 ebr_signature:            db 29h
 ebr_volume_id:            db 12h, 34h, 56h, 78h   ; serial number
-ebr_volume_label:         db 'BOGDANA  OS'     ; 11 bytes
+ebr_volume_label:         db 'BOGDANA OS '     ; 11 bytes
 ebr_system_id:            db 'FAT12   '        ; 8bytes
 
 ; Code goes here
