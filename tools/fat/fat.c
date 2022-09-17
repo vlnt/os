@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
+#include <string.h> 
+#include <ctype.h>
 
 typedef uint8_t bool;
 #define true 1
@@ -31,27 +32,6 @@ typedef struct{
     uint32_t VolumeId;
     uint8_t VolumeLabel[11];
     uint8_t SystemId[8];
-    //bdb_oem:                  db 'MSWIN4.1'        ; 8 bytes
-    //bdb_bytes_per_sector:     dw 512
-    //bdb_sectors_per_cluster:  db 1
-    //bdb_reserved_sectors:     dw 1
-    //bdb_fat_count:            db 2
-    //bdb_dir_entries_count:    dw 0E0h
-    //bdb_total_sectors:        dw 2880              ; 2880 x 512 = 1.44MB
-    //bdb_media_descriptor_type:db 0F0h              ; F0 = 3,5" floppy disk
-    //bdb_sectors_per_fat:      dw 9                 ; 9 sectors/fat
-    //bdb_sectors_per_track:    dw 18
-    //bdb_heads:                dw 2
-    //bdb_hidden_sectors:       dd 0
-    //bdb_large_sectors_count:  dd 0
-
-    // ; extended boot record
-    //ebr_drive_number:         db 0                 ; 0x00 - floppy 0x80 - hdd
-    //                          db 0                 ; reserved
-   // ebr_signature:            db 29h
-   // ebr_volume_id:            db 12h, 34h, 56h, 78h   ; serial number
-    //ebr_volume_label:         db 'BOGDANA OS '     ; 11 bytes
-    //ebr_system_id:            db 'FAT12   '        ; 8bytes
 } __attribute__((packed)) BootSector;
 
 typedef struct{
@@ -72,6 +52,7 @@ typedef struct{
 BootSector g_BootSector;
 uint8_t* g_Fat = NULL;
 DirectoryEntry* g_RootDirectory = NULL;
+uint32_t g_RootDirectoryEnd;
 
 bool readBootSector(FILE* disk){
     
@@ -100,6 +81,7 @@ bool readRootDirectory(FILE* disk){
     if(size % g_BootSector.BytesPerSector > 0){
         sectors++;
     }
+    g_RootDirectoryEnd = lba + sectors;
     g_RootDirectory = (DirectoryEntry*) malloc(sectors * g_BootSector.BytesPerSector);
     return readSectors(disk, lba, sectors, g_RootDirectory);
 }
@@ -116,6 +98,27 @@ DirectoryEntry* findFile(const char* name){
     return NULL;
 }
 
+bool readFile(DirectoryEntry* fileEntry, FILE* disk, uint8_t* outputBuffer){
+    
+    bool ok = true;
+    uint16_t currentCluster = fileEntry -> FirstClusterLow;
+    
+    do{
+        uint32_t lba = g_RootDirectoryEnd + (currentCluster -2) * g_BootSector.SectorsPerCluster;
+        ok = ok && readSectors(disk, lba, g_BootSector.SectorsPerCluster, outputBuffer);
+        outputBuffer += g_BootSector.SectorsPerCluster * g_BootSector.BytesPerSector;
+
+        uint32_t fatIndex = currentCluster * 3 / 2;
+        if(currentCluster / 2 == 0){
+            currentCluster = (*(uint16_t*)(g_Fat + fatIndex)) & 0x0FFF;
+        } else{
+            currentCluster = (*(uint16_t*)(g_Fat + fatIndex)) >> 4;
+        }
+     } while(ok && currentCluster < 0xFF8);
+
+    return ok;
+}
+
 int main(int argc, char** argv){
 
     if(argc < 3){
@@ -123,7 +126,7 @@ int main(int argc, char** argv){
         return -1;
     }
 
-    FILE* disk = fopen(argv[1], "rb");
+    FILE* disk = fopen(argv[1], "r");
     if(!disk){
         fprintf(stderr, "Cannot open disk image %s\n", argv[1]);
         return -1;
@@ -154,6 +157,23 @@ int main(int argc, char** argv){
         free(g_RootDirectory);
         return -5;
     }
+
+    uint8_t* buffer = (uint8_t*)malloc(fileEntry -> size + g_BootSector.BytesPerSector);
+    
+    if(!readFile(fileEntry, disk, buffer)){
+        fprintf(stderr, "Could not read file %s\n", argv[2]);
+        free(g_Fat);
+        free(g_RootDirectory);
+        free(buffer);
+        return -6;
+    }
+
+    for(size_t i = 0; i < fileEntry -> size; i++){
+
+        if(isprint(buffer[i])) fputc(buffer[i], stdout);
+        else printf("<%02x>", buffer[i]);
+    }
+    printf("\n");
 
     free(g_Fat);
     free(g_RootDirectory);
