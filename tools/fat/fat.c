@@ -104,7 +104,7 @@ bool readFile(DirectoryEntry* fileEntry, FILE* disk, uint8_t* outputBuffer){
     uint16_t currentCluster = fileEntry -> FirstClusterLow;
     
     do{
-        uint32_t lba = g_RootDirectoryEnd + (currentCluster -2) * g_BootSector.SectorsPerCluster;
+        uint32_t lba = g_RootDirectoryEnd + (currentCluster -       2) * g_BootSector.SectorsPerCluster;
         ok = ok && readSectors(disk, lba, g_BootSector.SectorsPerCluster, outputBuffer);
         outputBuffer += g_BootSector.SectorsPerCluster * g_BootSector.BytesPerSector;
 
@@ -174,7 +174,8 @@ int main(int argc, char** argv){
         else printf("<%02x>", buffer[i]);
     }
     printf("\n");
-
+    
+    free(buffer);
     free(g_Fat);
     free(g_RootDirectory);
 
