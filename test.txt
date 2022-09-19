@@ -1,3 +1,1 @@
 Hello world from file!!!
-Building OS is awesome!!!
-Testing FAT filesystem.
