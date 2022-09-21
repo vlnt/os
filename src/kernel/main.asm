@@ -31,7 +31,7 @@ puts:
     or al, al       ;verify if next character is null?
     jz .done
 
-    mov ah, 0x0e    ;call nios interrupt
+    mov ah, 0x0e    ;call bios interrupt
     int 0x10
 
     jmp .loop
